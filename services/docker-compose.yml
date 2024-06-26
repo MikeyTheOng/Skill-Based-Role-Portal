@@ -1,0 +1,74 @@
+version: "3"
+
+services:
+  #################################
+  # Staff: The Staff microservice
+  #################################
+  staff:
+    build: 
+      context: ./
+      dockerfile: staff.Dockerfile
+    image: is212spm/sbrp:staff
+    restart: always
+    env_file:
+      .env
+    ports:
+      - "5100:5100"
+
+  #################################
+  # RoleListing: The RoleListing microservice
+  #################################
+  role_listing:
+    build: 
+      context: ./
+      dockerfile: rolelisting.Dockerfile
+    image: is212spm/sbrp:rolelisting
+    restart: always
+    environment: 
+      - TZ=Asia/Singapore
+    env_file:
+      .env
+    ports:
+      - "5002:5002"
+
+  #################################
+  # RoleSkill: The RoleSkill microservice
+  #################################
+  role_skill:
+    build: 
+      context: ./
+      dockerfile: roleskill.Dockerfile
+    image: is212spm/sbrp:roleskill
+    restart: always
+    env_file:
+      .env
+    ports:
+      - "5003:5003"
+
+  #################################
+  # StaffSkill: The StaffSkill microservice
+  #################################
+  staff_skill:
+    build: 
+      context: ./
+      dockerfile: staffskill.Dockerfile
+    image: is212spm/sbrp:staffskill
+    restart: always
+    env_file:
+      .env   
+    ports:
+      - "5005:5005"
+
+  #################################
+  # Application: The Application microservice
+  #################################
+  application:
+    build: 
+      context: ./
+      dockerfile: application.Dockerfile
+    image: is212spm/sbrp:application
+    restart: always
+    env_file:
+      .env   
+    ports:
+      - "5006:5006"

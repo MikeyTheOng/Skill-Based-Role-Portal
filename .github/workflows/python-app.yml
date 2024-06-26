@@ -1,0 +1,93 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Python application
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  test-with-mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:latest
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: SBRP
+        ports:
+          - 3306:3306
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 pytest
+        if [ -f services/requirements.txt ]; then pip install -r services/requirements.txt; fi
+
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Wait for MySQL to be ready
+      run: |
+        # Set initial waiting time
+        WAIT_SECONDS=60
+        while [ $WAIT_SECONDS -gt 0 ]; do
+          # Attempt to connect to MySQL server, suppress output with '2>&1'
+          if echo "SELECT 1" | mysql -h 127.0.0.1 -P 3306 -u root >/dev/null 2>&1; then
+            echo "MySQL is up and running!"
+            exit 0
+          fi
+
+          echo "Waiting for MySQL to be ready..."
+          sleep 5
+          WAIT_SECONDS=$((WAIT_SECONDS-5))
+        done
+        echo "Timed out waiting for MySQL to start."
+        exit 1
+      shell: bash
+
+    - name: Execute SQL script when ready
+      run: mysql -h 127.0.0.1 -P 3306 -u root SBRP < SQL_Statements/main.sql > output.log 2>&1
+
+    - name: Show script_output.log content after error
+      run: cat script_output.log
+      if: ${{ failure() }}  # Only execute this step if the previous step failed
+      shell: bash
+
+    - name: List databases
+      run: |
+        mysql -h 127.0.0.1 -P 3306 -u root SBRP -e "SHOW DATABASES;" > output.log 2>&1
+
+    - name: Show script_output.log content after error
+      run: cat script_output.log
+      if: ${{ failure() }}  # Only execute this step if the previous step failed
+      shell: bash
+
+    - name: Run Unit Tests
+      env:
+        dbURL: mysql+mysqlconnector://root@localhost:3306/SBRP
+      run: |
+        python services/unit_tests.py
+
+    - name: Run Integration Tests
+      env:
+        dbURL: mysql+mysqlconnector://root@localhost:3306/SBRP
+      run: |
+        python services/integration_tests.py
